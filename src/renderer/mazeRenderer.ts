@@ -4,20 +4,18 @@ import { DELTA } from '../maze/generator';
 
 // ── Colour palette (Telia purple × Pac-Man × Mario) ──────────────────────────
 const C = {
-  floor0:         '#0e0020',
-  floor1:         '#14002e',
-  floorStart:     '#001840',
-  floorExit:      '#001a14',
+  floor0:     'rgba(14,0,32,0.55)',
+  floor1:     'rgba(20,0,46,0.55)',
+  floorStart: 'rgba(0,24,64,0.65)',
+  floorExit:  'rgba(20,0,46,0.70)',
   wallStroke:     '#dd44ff',
   wallGlow:       '#990ae3',
   doorLockedGlow: '#ff5500',
   doorOpenGlow:   '#00ff88',
-  exitPole:       '#bbbbcc',
-  exitFlag:       '#4ecca3',
-  startGlow:      '#44aaff',
-  pellet:         '#ffe000',
-  pelletGlow:     '#ffaa00',
-  tileGrid:       'rgba(153,10,227,0.07)',
+  startGlow:  '#44aaff',
+  pellet:     '#ffe000',
+  pelletGlow: '#ffaa00',
+  tileGrid:   'rgba(153,10,227,0.10)',
 } as const;
 
 const WALL_T    = 8;  // wall block thickness (px, centred on cell edge)
@@ -116,28 +114,69 @@ function drawStartMarker(ctx: CanvasRenderingContext2D, x: number, y: number): v
   ctx.restore();
 }
 
-// ── Mario-style flagpole ──────────────────────────────────────────────────────
+// ── Telia logo (loaded once) ──────────────────────────────────────────────────
+const teliaImg = new Image();
+teliaImg.src = './telia-logo.png';
+
+// ── Telia logo exit marker (flagpole + Telia logo flag) ──────────────────────
 function drawFlagpole(ctx: CanvasRenderingContext2D, cx: number, cy: number, timestamp: number): void {
+  const poleTop  = cy - 36;
+  const poleBot  = cy + 12;
+  const bob      = Math.sin(timestamp / 700) * 3;
+  const pulse    = 0.7 + 0.3 * Math.sin(timestamp / 500);
+
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillRect(cx - 1, cy - 24, 6, 32);
-  ctx.shadowBlur = 8;
-  ctx.shadowColor = C.exitFlag;
-  ctx.fillStyle = C.exitPole;
-  ctx.fillRect(cx - 2, cy - 24, 4, 32);
-  const wave = Math.sin(timestamp / 250) * 4;
-  ctx.fillStyle = C.exitFlag;
-  ctx.shadowBlur = 14;
-  ctx.shadowColor = C.exitFlag;
+
+  // ── Pole shadow ──
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.fillRect(cx + 1, poleTop + 2, 4, poleBot - poleTop);
+
+  // ── Pole (silver gradient) ──
+  const pg = ctx.createLinearGradient(cx - 2, 0, cx + 4, 0);
+  pg.addColorStop(0, '#ccccdd');
+  pg.addColorStop(0.5, '#ffffff');
+  pg.addColorStop(1, '#8888aa');
+  ctx.fillStyle = pg;
+  ctx.fillRect(cx - 2, poleTop, 4, poleBot - poleTop);
+
+  // ── Base ball ──
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = '#cc88ff';
+  ctx.fillStyle = '#ccccdd';
   ctx.beginPath();
-  ctx.moveTo(cx + 2, cy - 24);
-  ctx.quadraticCurveTo(cx + 15 + wave, cy - 17, cx + 2, cy - 10);
-  ctx.closePath();
+  ctx.arc(cx, poleBot, 5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = C.exitFlag;
+  ctx.shadowBlur = 0;
+
+  // ── Telia logo flag attached at pole top, with bob ──
+  // Clip only the icon (left square portion of the horizontal logotype).
+  // Logo is 3170×1251 px; icon occupies roughly the first 1251×1251 pixels.
+  const ICON_SRC_W = 1251;
+  const ICON_SRC_H = 1251;
+  const iconSize = 20;
+  const flagX  = cx + 2;             // attached to right side of pole
+  const flagY  = poleTop + bob;
+
+  // Purple backdrop behind icon
+  ctx.shadowBlur  = 20 * pulse;
+  ctx.shadowColor = '#990ae3';
+  ctx.fillStyle   = 'rgba(100,0,160,0.75)';
   ctx.beginPath();
-  ctx.arc(cx, cy + 8, 5, 0, Math.PI * 2);
+  ctx.roundRect(flagX - 2, flagY - 2, iconSize + 4, iconSize + 4, 4);
   ctx.fill();
+
+  // Icon image (source-cropped to symbol only)
+  ctx.shadowBlur = 12 * pulse;
+  ctx.shadowColor = '#cc44ff';
+  if (teliaImg.complete && teliaImg.naturalWidth > 0) {
+    ctx.drawImage(teliaImg, 0, 0, ICON_SRC_W, ICON_SRC_H, flagX, flagY, iconSize, iconSize);
+  } else {
+    ctx.fillStyle = '#990ae3';
+    ctx.beginPath();
+    ctx.arc(flagX + iconSize / 2, flagY + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 

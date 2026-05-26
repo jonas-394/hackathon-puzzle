@@ -1,7 +1,7 @@
 {
   "name": "hackathon-puzzle",
   "version": "0.1.0",
-  "description": "Cipher Dungeon — a cryptographic maze game",
+  "description": "Purple Maze — an IQ puzzle maze game",
   "type": "module",
   "scripts": {
     "dev": "vite",

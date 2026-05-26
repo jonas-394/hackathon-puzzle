@@ -18,6 +18,7 @@ import {
 import { renderMaze } from './renderer/mazeRenderer';
 import { renderPlayer } from './renderer/playerRenderer';
 import { renderHUD } from './renderer/hudRenderer';
+import { renderBackground } from './renderer/backgroundRenderer';
 import { PuzzleOverlay } from './ui/puzzleOverlay';
 import { LevelCompleteOverlay } from './ui/levelComplete';
 import { MainMenu, GameOverOverlay } from './ui/mainMenu';
@@ -70,6 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
     savedState?.level ?? 1,
     () => startNewGame(),
     () => continueGame(savedState!),
+    (level) => { void startAtLevel(level); },
   );
 
   requestAnimationFrame(gameLoop);
@@ -130,9 +132,8 @@ function render(timestamp: number): void {
   const w = canvas.width;
   const h = canvas.height;
 
-  // Clear
-  ctx.fillStyle = '#0e0020';
-  ctx.fillRect(0, 0, w, h);
+  // Clear + animated aurora background
+  renderBackground(ctx, w, h, timestamp);
 
   if (phase === 'playing' || phase === 'puzzle' || phase === 'levelComplete') {
     // Centre the whole maze on the canvas — it stays fixed, the player moves within it
@@ -313,6 +314,15 @@ async function startNewGame(): Promise<void> {
   saveState(gameState);
   phase = 'loading';
   await loadLevel(1);
+  phase = 'playing';
+}
+
+async function startAtLevel(level: number): Promise<void> {
+  clearState();
+  gameState = { ...createInitialState(), level };
+  saveState(gameState);
+  phase = 'loading';
+  await loadLevel(level);
   phase = 'playing';
 }
 
