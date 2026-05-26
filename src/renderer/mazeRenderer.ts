@@ -20,7 +20,8 @@ const C = {
   tileGrid:       'rgba(153,10,227,0.07)',
 } as const;
 
-const WALL_WIDTH = 5;
+const WALL_T    = 8;  // wall block thickness (px, centred on cell edge)
+const SIDE_D    = 5;  // depth extrusion shown on south/east face
 const DOOR_WIDTH = 11;
 
 export function renderMaze(
@@ -71,13 +72,7 @@ export function renderMaze(
     }
   }
 
-  // ── Neon walls ────────────────────────────────────────────────────────────
-  ctx.save();
-  ctx.shadowBlur = 14;
-  ctx.shadowColor = C.wallGlow;
-  ctx.strokeStyle = C.wallStroke;
-  ctx.lineWidth = WALL_WIDTH;
-  ctx.lineCap = 'round';
+  // ── Pseudo-3D walls ─────────────────────────────────────────────────────────
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = cells[r][c];
@@ -85,13 +80,10 @@ export function renderMaze(
       const y = r * CELL_SIZE;
       for (const dir of ['N', 'S', 'E', 'W'] as Direction[]) {
         if (!cell.walls[dir] || doorMap.has(`${c},${r},${dir}`)) continue;
-        ctx.beginPath();
-        wallSeg(ctx, x, y, dir);
-        ctx.stroke();
+        drawWall3D(ctx, x, y, dir);
       }
     }
   }
-  ctx.restore();
 
   // ── Doors ─────────────────────────────────────────────────────────────────
   for (const door of doors) {
@@ -222,6 +214,67 @@ function drawLockDot(ctx: CanvasRenderingContext2D, cellX: number, cellY: number
   ctx.beginPath(); ctx.arc(mx, my, 6, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ff2200';
   ctx.beginPath(); ctx.arc(mx, my, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// ── Pseudo-3D wall block ─────────────────────────────────────────────────────
+function drawWall3D(ctx: CanvasRenderingContext2D, x: number, y: number, dir: Direction): void {
+  const half = WALL_T / 2;
+  const isH  = dir === 'N' || dir === 'S';
+  const edge = isH
+    ? (dir === 'N' ? y              : y + CELL_SIZE)
+    : (dir === 'W' ? x              : x + CELL_SIZE);
+
+  ctx.save();
+
+  if (isH) {
+    // Floor shadow (south)
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.fillRect(x + 3, edge + half + SIDE_D, CELL_SIZE - 6, 4);
+    // Side face (south, dark purple)
+    ctx.fillStyle = '#1a0030';
+    ctx.fillRect(x, edge + half, CELL_SIZE, SIDE_D);
+    // Top body (gradient: bright north → dark south)
+    const gH = ctx.createLinearGradient(0, edge - half, 0, edge + half);
+    gH.addColorStop(0, '#ee55ff');
+    gH.addColorStop(1, '#770088');
+    ctx.fillStyle = gH;
+    ctx.fillRect(x, edge - half, CELL_SIZE, WALL_T);
+    // Neon glow line on the lit (north) edge
+    ctx.shadowBlur  = 16;
+    ctx.shadowColor = C.wallGlow;
+    ctx.strokeStyle = C.wallStroke;
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x,             edge - half);
+    ctx.lineTo(x + CELL_SIZE, edge - half);
+    ctx.stroke();
+  } else {
+    // Floor shadow (east)
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.fillRect(edge + half + SIDE_D, y + 3, 4, CELL_SIZE - 6);
+    // Side face (east, dark purple)
+    ctx.fillStyle = '#1a0030';
+    ctx.fillRect(edge + half, y, SIDE_D, CELL_SIZE);
+    // Top body (gradient: bright west → dark east)
+    const gV = ctx.createLinearGradient(edge - half, 0, edge + half, 0);
+    gV.addColorStop(0, '#ee55ff');
+    gV.addColorStop(1, '#770088');
+    ctx.fillStyle = gV;
+    ctx.fillRect(edge - half, y, WALL_T, CELL_SIZE);
+    // Neon glow line on the lit (west) edge
+    ctx.shadowBlur  = 16;
+    ctx.shadowColor = C.wallGlow;
+    ctx.strokeStyle = C.wallStroke;
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(edge - half, y);
+    ctx.lineTo(edge - half, y + CELL_SIZE);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
