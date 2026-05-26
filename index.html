@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cipher Dungeon</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: #0d0d1a;
+        overflow: hidden;
+        font-family: 'Courier New', Courier, monospace;
+        color: #e0e0e0;
+      }
+
+      #game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* ── UI Layer ── */
+      #ui-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      /* ── Shared overlay backdrop ── */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.72);
+        pointer-events: all;
+      }
+
+      .card {
+        background: #12122a;
+        border: 2px solid #e94560;
+        border-radius: 12px;
+        padding: 36px 40px;
+        max-width: 520px;
+        width: 90vw;
+        box-shadow: 0 0 40px rgba(233, 69, 96, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .card h1 {
+        text-align: center;
+        color: #e94560;
+        font-size: 2rem;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+      }
+
+      .card h2 {
+        color: #53d8fb;
+        font-size: 1.1rem;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+
+      .card p, .card label {
+        font-size: 0.9rem;
+        color: #a0a8c0;
+        line-height: 1.6;
+      }
+
+      .cipher-label {
+        font-size: 0.78rem;
+        color: #ffd700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .ciphertext {
+        background: #0d0d1a;
+        border: 1px solid #2a2a50;
+        border-radius: 6px;
+        padding: 14px 18px;
+        font-size: 1.4rem;
+        letter-spacing: 4px;
+        color: #53d8fb;
+        text-align: center;
+        word-break: break-all;
+        font-family: 'Courier New', Courier, monospace;
+      }
+
+      .hint-box {
+        background: #1a1a38;
+        border: 1px solid #ffd700;
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        color: #ffd700;
+        white-space: pre-wrap;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .input-row input {
+        flex: 1;
+        background: #0d0d1a;
+        border: 2px solid #2a2a50;
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 1.1rem;
+        color: #e0e0e0;
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 2px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .input-row input:focus { border-color: #53d8fb; }
+
+      button {
+        background: #e94560;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        font-family: 'Courier New', Courier, monospace;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s;
+        text-transform: uppercase;
+      }
+
+      button:hover { background: #ff6b84; }
+      button:active { transform: scale(0.97); }
+
+      button.secondary {
+        background: #1e2d50;
+        border: 1px solid #53d8fb;
+        color: #53d8fb;
+      }
+      button.secondary:hover { background: #243860; }
+
+      button.big {
+        padding: 14px 32px;
+        font-size: 1rem;
+        letter-spacing: 2px;
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .status-msg {
+        min-height: 1.4em;
+        font-size: 0.88rem;
+        text-align: center;
+        font-weight: bold;
+      }
+      .status-msg.error   { color: #e94560; }
+      .status-msg.success { color: #4ecca3; }
+      .status-msg.locked  { color: #ffd700; }
+
+      .lives-row {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        font-size: 1.3rem;
+      }
+
+      .score-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      .score-table td {
+        padding: 4px 8px;
+        color: #a0a8c0;
+      }
+      .score-table td:last-child {
+        text-align: right;
+        color: #53d8fb;
+        font-weight: bold;
+      }
+
+      /* ── Shake animation for wrong answer ── */
+      @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        20%      { transform: translateX(-8px); }
+        40%      { transform: translateX(8px); }
+        60%      { transform: translateX(-6px); }
+        80%      { transform: translateX(6px); }
+      }
+      .shake { animation: shake 0.35s ease; }
+
+      /* ── Keypress hint ── */
+      #key-hint {
+        position: absolute;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+        color: #404060;
+        letter-spacing: 1px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui-layer"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
