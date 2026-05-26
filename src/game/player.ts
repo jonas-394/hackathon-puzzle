@@ -15,7 +15,7 @@ export function createPlayer(col: number, row: number): PlayerState {
     startPixelY: py,
     targetPixelX: px,
     targetPixelY: py,
-    facing: 'S',
+    facing: 'E',
     isMoving: false,
     moveStartTime: 0,
     collectedTokenKeys: new Set(),

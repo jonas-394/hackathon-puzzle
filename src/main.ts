@@ -179,6 +179,9 @@ function handleKeyDown(e: KeyboardEvent): void {
   if (dir) {
     e.preventDefault();
     pendingDir = dir;
+    // Turn Pac-Man to face the intended direction immediately,
+    // even while the current movement animation is still playing.
+    player = { ...player, facing: dir };
   }
 }
 

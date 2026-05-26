@@ -46,8 +46,10 @@ export function renderPlayer(
   ctx.arc(cx, cy, RADIUS - 1, facing + mouthAngle, facing + Math.PI * 2 - mouthAngle);
   ctx.stroke();
 
-  // Eye
-  const eyeAngle = facing - Math.PI / 3;
+  // Eye rotates with body: 60° CCW from facing in screen-space.
+  // For leftward-facing directions cos(facing)<0 so the offset sign flips to
+  // keep the eye on the correct (front-upper) side.
+  const eyeAngle = facing - (Math.PI / 3) * (Math.cos(facing) >= 0 ? 1 : -1);
   const eyeX = cx + Math.cos(eyeAngle) * (RADIUS * 0.52);
   const eyeY = cy + Math.sin(eyeAngle) * (RADIUS * 0.52);
   ctx.fillStyle = '#1a0030';
