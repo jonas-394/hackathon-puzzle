@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cipher Dungeon</title>
+    <title>Maze IQ</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        background: #0d0d1a;
+        background: #0e0020;
         overflow: hidden;
         font-family: 'Courier New', Courier, monospace;
         color: #e0e0e0;
@@ -34,18 +34,19 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(0, 0, 0, 0.72);
+        background: rgba(8, 0, 20, 0.80);
         pointer-events: all;
+        backdrop-filter: blur(2px);
       }
 
       .card {
-        background: #12122a;
-        border: 2px solid #e94560;
-        border-radius: 12px;
+        background: linear-gradient(160deg, #120026 0%, #0a0018 100%);
+        border: 2px solid #990ae3;
+        border-radius: 16px;
         padding: 36px 40px;
         max-width: 520px;
         width: 90vw;
-        box-shadow: 0 0 40px rgba(233, 69, 96, 0.35);
+        box-shadow: 0 0 60px rgba(153, 10, 227, 0.45), 0 0 20px rgba(153, 10, 227, 0.2) inset;
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -53,14 +54,15 @@
 
       .card h1 {
         text-align: center;
-        color: #e94560;
+        color: #dd44ff;
         font-size: 2rem;
         letter-spacing: 4px;
         text-transform: uppercase;
+        text-shadow: 0 0 20px #990ae3, 0 0 40px #990ae3;
       }
 
       .card h2 {
-        color: #53d8fb;
+        color: #dd44ff;
         font-size: 1.1rem;
         letter-spacing: 2px;
         text-transform: uppercase;
@@ -81,25 +83,26 @@
       }
 
       .ciphertext {
-        background: #0d0d1a;
-        border: 1px solid #2a2a50;
-        border-radius: 6px;
+        background: #0a0018;
+        border: 1px solid #440066;
+        border-radius: 8px;
         padding: 14px 18px;
         font-size: 1.4rem;
         letter-spacing: 4px;
-        color: #53d8fb;
+        color: #ffe000;
         text-align: center;
         word-break: break-all;
         font-family: 'Courier New', Courier, monospace;
+        text-shadow: 0 0 12px #ffaa00;
       }
 
       .hint-box {
-        background: #1a1a38;
-        border: 1px solid #ffd700;
+        background: #1a0030;
+        border: 1px solid #990ae3;
         border-radius: 6px;
         padding: 10px 14px;
         font-size: 0.85rem;
-        color: #ffd700;
+        color: #dd44ff;
         white-space: pre-wrap;
       }
 
@@ -110,43 +113,45 @@
 
       .input-row input {
         flex: 1;
-        background: #0d0d1a;
-        border: 2px solid #2a2a50;
+        background: #0a0018;
+        border: 2px solid #440066;
         border-radius: 6px;
         padding: 10px 14px;
         font-size: 1.1rem;
-        color: #e0e0e0;
+        color: #ffe000;
         font-family: 'Courier New', Courier, monospace;
         letter-spacing: 2px;
         outline: none;
         transition: border-color 0.2s;
       }
 
-      .input-row input:focus { border-color: #53d8fb; }
+      .input-row input:focus { border-color: #990ae3; box-shadow: 0 0 10px rgba(153,10,227,0.4); }
 
       button {
-        background: #e94560;
+        background: linear-gradient(135deg, #990ae3 0%, #6600aa 100%);
         color: #fff;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 10px 20px;
         font-size: 0.9rem;
         font-family: 'Courier New', Courier, monospace;
         letter-spacing: 1px;
         cursor: pointer;
-        transition: background 0.15s, transform 0.1s;
+        transition: filter 0.15s, transform 0.1s;
         text-transform: uppercase;
+        box-shadow: 0 0 16px rgba(153,10,227,0.4);
       }
 
-      button:hover { background: #ff6b84; }
+      button:hover { filter: brightness(1.25); }
       button:active { transform: scale(0.97); }
 
       button.secondary {
-        background: #1e2d50;
-        border: 1px solid #53d8fb;
-        color: #53d8fb;
+        background: #0e0020;
+        border: 1.5px solid #990ae3;
+        color: #dd44ff;
+        box-shadow: none;
       }
-      button.secondary:hover { background: #243860; }
+      button.secondary:hover { background: #1a0030; }
 
       button.big {
         padding: 14px 32px;
@@ -167,9 +172,9 @@
         text-align: center;
         font-weight: bold;
       }
-      .status-msg.error   { color: #e94560; }
+      .status-msg.error   { color: #ff4466; }
       .status-msg.success { color: #4ecca3; }
-      .status-msg.locked  { color: #ffd700; }
+      .status-msg.locked  { color: #ffe000; }
 
       .lives-row {
         display: flex;
@@ -189,7 +194,7 @@
       }
       .score-table td:last-child {
         text-align: right;
-        color: #53d8fb;
+        color: #dd44ff;
         font-weight: bold;
       }
 

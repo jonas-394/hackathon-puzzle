@@ -131,16 +131,18 @@ function render(timestamp: number): void {
   const h = canvas.height;
 
   // Clear
-  ctx.fillStyle = '#0d0d1a';
+  ctx.fillStyle = '#0e0020';
   ctx.fillRect(0, 0, w, h);
 
   if (phase === 'playing' || phase === 'puzzle' || phase === 'levelComplete') {
-    // Camera: centre on player
-    const camX = Math.round(w / 2 - (player.pixelX + CELL_SIZE / 2));
-    const camY = Math.round(h / 2 - (player.pixelY + CELL_SIZE / 2));
+    // Centre the whole maze on the canvas — it stays fixed, the player moves within it
+    const mazeW = levelData.grid.cols * CELL_SIZE;
+    const mazeH = levelData.grid.rows * CELL_SIZE;
+    const offsetX = Math.round((w - mazeW) / 2);
+    const offsetY = Math.round((h - mazeH) / 2);
 
     ctx.save();
-    ctx.translate(camX, camY);
+    ctx.translate(offsetX, offsetY);
 
     // Build door-open progress map
     const doorProgress = new Map<string, number>();
@@ -157,8 +159,8 @@ function render(timestamp: number): void {
       }
     }
 
-    renderMaze(ctx, levelData.grid, levelData.doors, doorProgress);
-    renderPlayer(ctx, player);
+    renderMaze(ctx, levelData.grid, levelData.doors, doorProgress, timestamp);
+    renderPlayer(ctx, player, timestamp);
 
     ctx.restore();
 
