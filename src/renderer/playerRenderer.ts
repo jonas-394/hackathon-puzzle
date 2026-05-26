@@ -1,70 +1,61 @@
-import type { PlayerState, Direction } from '../types';
+import type { PlayerState } from '../types';
 import { CELL_SIZE } from '../game/player';
 
-const RADIUS = 21;
+const RADIUS = 24;
+
+// Load player image once at module level
+const playerImg = new Image();
+playerImg.src = './nowak.JPG';
 
 export function renderPlayer(
   ctx: CanvasRenderingContext2D,
   player: PlayerState,
-  timestamp: number,
+  _timestamp: number,
 ): void {
   const cx = player.pixelX + CELL_SIZE / 2;
   const cy = player.pixelY + CELL_SIZE / 2;
 
-  // Mouth opens and chomps while moving, slightly open at rest
-  const mouthAngle = player.isMoving
-    ? Math.abs(Math.sin(timestamp / 90)) * 0.38
-    : 0.08;
-
-  const facing = dirAngle(player.facing);
-
   ctx.save();
 
   // Drop shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillStyle = 'rgba(0,0,0,0.40)';
   ctx.beginPath();
-  ctx.ellipse(cx + 3, cy + 5, RADIUS * 0.85, RADIUS * 0.42, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + 3, cy + 6, RADIUS * 0.85, RADIUS * 0.38, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Glow aura
-  ctx.shadowBlur = 24;
-  ctx.shadowColor = '#ffcc00';
+  ctx.shadowBlur = 28;
+  ctx.shadowColor = '#990ae3';
 
-  // Pac-Man body
-  ctx.fillStyle = '#ffe000';
+  // Circular clip
   ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.arc(cx, cy, RADIUS, facing + mouthAngle, facing + Math.PI * 2 - mouthAngle);
-  ctx.closePath();
-  ctx.fill();
+  ctx.arc(cx, cy, RADIUS, 0, Math.PI * 2);
+  ctx.clip();
 
-  // Highlight rim
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,200,0,0.4)';
-  ctx.lineWidth = 1.5;
+  ctx.translate(cx, cy);
+
+  if (playerImg.complete && playerImg.naturalWidth > 0) {
+    const d = RADIUS * 2;
+    ctx.drawImage(playerImg, -RADIUS, -RADIUS, d, d);
+  } else {
+    // Fallback solid circle while image loads
+    ctx.fillStyle = '#ffe000';
+    ctx.beginPath();
+    ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+
+  // Neon border ring drawn on top (outside the clip)
+  ctx.save();
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = '#dd44ff';
+  ctx.strokeStyle = '#dd44ff';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.arc(cx, cy, RADIUS - 1, facing + mouthAngle, facing + Math.PI * 2 - mouthAngle);
+  ctx.arc(cx, cy, RADIUS, 0, Math.PI * 2);
   ctx.stroke();
-
-  // Eye rotates with body: 60° CCW from facing in screen-space.
-  // For leftward-facing directions cos(facing)<0 so the offset sign flips to
-  // keep the eye on the correct (front-upper) side.
-  const eyeAngle = facing - (Math.PI / 3) * (Math.cos(facing) >= 0 ? 1 : -1);
-  const eyeX = cx + Math.cos(eyeAngle) * (RADIUS * 0.52);
-  const eyeY = cy + Math.sin(eyeAngle) * (RADIUS * 0.52);
-  ctx.fillStyle = '#1a0030';
-  ctx.beginPath();
-  ctx.arc(eyeX, eyeY, 3.5, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.restore();
 }
 
-function dirAngle(dir: Direction): number {
-  switch (dir) {
-    case 'E': return 0;
-    case 'S': return Math.PI / 2;
-    case 'W': return Math.PI;
-    case 'N': return -Math.PI / 2;
-  }
-}
