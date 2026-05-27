@@ -1,0 +1,287 @@
+import { buildLevel } from './game/level';
+import { createPlayer, startMove, updateMovement, tokenKey, CELL_SIZE, } from './game/player';
+import { createInitialState, loadState, hasSavedState, saveState, clearState, applyLevelComplete, } from './game/state';
+import { renderMaze } from './renderer/mazeRenderer';
+import { renderPlayer } from './renderer/playerRenderer';
+import { renderHUD } from './renderer/hudRenderer';
+import { renderBackground } from './renderer/backgroundRenderer';
+import { PuzzleOverlay } from './ui/puzzleOverlay';
+import { LevelCompleteOverlay } from './ui/levelComplete';
+import { MainMenu, GameOverOverlay } from './ui/mainMenu';
+import { DELTA } from './maze/generator';
+// ── Global state ──────────────────────────────────────────────────────────────
+let canvas;
+let ctx;
+let phase = 'menu';
+let gameState;
+let levelData;
+let player;
+// Input queue: only store the last pending direction
+let pendingDir = null;
+const heldKeys = new Set();
+// Door open animations: door key → start timestamp
+const doorOpenAnimations = new Map();
+const DOOR_ANIM_MS = 500;
+// ── UI components ──────────────────────────────────────────────────────────────
+let puzzleOverlay;
+let levelCompleteOverlay;
+let mainMenu;
+let gameOverOverlay;
+// ── Initialisation ────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    canvas = document.getElementById('game');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    const uiLayer = document.getElementById('ui-layer');
+    puzzleOverlay = new PuzzleOverlay(uiLayer);
+    levelCompleteOverlay = new LevelCompleteOverlay(uiLayer);
+    mainMenu = new MainMenu(uiLayer);
+    gameOverOverlay = new GameOverOverlay(uiLayer);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    const savedState = loadState();
+    mainMenu.show(hasSavedState(), savedState?.level ?? 1, () => startNewGame(), () => continueGame(savedState), (level) => { void startAtLevel(level); });
+    requestAnimationFrame(gameLoop);
+});
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+// ── Game loop ─────────────────────────────────────────────────────────────────
+function gameLoop(timestamp) {
+    update(timestamp);
+    render(timestamp);
+    requestAnimationFrame(gameLoop);
+}
+function update(timestamp) {
+    if (phase !== 'playing')
+        return;
+    if (!levelData || !player)
+        return;
+    // Advance player movement lerp
+    player = updateMovement(player, timestamp);
+    // Process next move once the current animation finishes
+    if (!player.isMoving) {
+        // Derive a direction from held keys if pendingDir was consumed
+        if (!pendingDir) {
+            pendingDir = dirFromHeldKeys();
+        }
+        if (pendingDir) {
+            processMove(pendingDir, timestamp);
+            pendingDir = null;
+        }
+    }
+    // Token pickup
+    const tk = tokenKey(player.col, player.row);
+    if (!player.collectedTokenKeys.has(tk)) {
+        const cell = levelData.grid.cells[player.row]?.[player.col];
+        if (cell?.hasToken) {
+            cell.hasToken = false;
+            player.collectedTokenKeys.add(tk);
+            gameState = { ...gameState, tokens: gameState.tokens + 1 };
+            saveState(gameState);
+        }
+    }
+    // Exit check (only when movement finished)
+    if (!player.isMoving &&
+        player.col === levelData.grid.exitCol &&
+        player.row === levelData.grid.exitRow) {
+        triggerLevelComplete();
+    }
+}
+function render(timestamp) {
+    const w = canvas.width;
+    const h = canvas.height;
+    // Clear + animated aurora background
+    renderBackground(ctx, w, h, timestamp);
+    if (phase === 'playing' || phase === 'puzzle' || phase === 'levelComplete') {
+        // Centre the whole maze on the canvas — it stays fixed, the player moves within it
+        const mazeW = levelData.grid.cols * CELL_SIZE;
+        const mazeH = levelData.grid.rows * CELL_SIZE;
+        const offsetX = Math.round((w - mazeW) / 2);
+        const offsetY = Math.round((h - mazeH) / 2);
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        // Build door-open progress map
+        const doorProgress = new Map();
+        for (const door of levelData.doors) {
+            const dk = `${door.col},${door.row},${door.direction}`;
+            if (door.isOpen) {
+                const animStart = doorOpenAnimations.get(dk);
+                if (animStart !== undefined) {
+                    const t = Math.min((timestamp - animStart) / DOOR_ANIM_MS, 1);
+                    doorProgress.set(dk, t);
+                }
+                else {
+                    doorProgress.set(dk, 1);
+                }
+            }
+        }
+        renderMaze(ctx, levelData.grid, levelData.doors, doorProgress, timestamp);
+        renderPlayer(ctx, player, timestamp);
+        ctx.restore();
+        renderHUD(ctx, gameState, w);
+    }
+}
+// ── Input ─────────────────────────────────────────────────────────────────────
+function handleKeyDown(e) {
+    heldKeys.add(e.key);
+    if (phase !== 'playing')
+        return;
+    if (puzzleOverlay.isVisible)
+        return;
+    const dir = keyToDir(e.key);
+    if (dir) {
+        e.preventDefault();
+        pendingDir = dir;
+        // Turn Pac-Man to face the intended direction immediately,
+        // even while the current movement animation is still playing.
+        player = { ...player, facing: dir };
+    }
+}
+function handleKeyUp(e) {
+    heldKeys.delete(e.key);
+}
+function dirFromHeldKeys() {
+    for (const key of ['ArrowUp', 'w', 'W', 'ArrowDown', 's', 'S', 'ArrowLeft', 'a', 'A', 'ArrowRight', 'd', 'D']) {
+        if (heldKeys.has(key)) {
+            const d = keyToDir(key);
+            if (d)
+                return d;
+        }
+    }
+    return null;
+}
+function keyToDir(key) {
+    switch (key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W': return 'N';
+        case 'ArrowDown':
+        case 's':
+        case 'S': return 'S';
+        case 'ArrowLeft':
+        case 'a':
+        case 'A': return 'W';
+        case 'ArrowRight':
+        case 'd':
+        case 'D': return 'E';
+        default: return null;
+    }
+}
+// ── Movement logic ────────────────────────────────────────────────────────────
+function processMove(dir, timestamp) {
+    const cell = levelData.grid.cells[player.row][player.col];
+    // Always update facing even if blocked
+    player = { ...player, facing: dir };
+    // Wall collision
+    if (cell.walls[dir])
+        return;
+    // Door check
+    const door = findDoor(player.col, player.row, dir);
+    if (door && !door.isOpen) {
+        const puzzle = levelData.puzzles.get(door.puzzleId);
+        if (puzzle)
+            openPuzzleOverlay(puzzle, door);
+        return;
+    }
+    // Move
+    player = startMove(player, dir, timestamp);
+}
+function findDoor(col, row, dir) {
+    // Door stored at (col, row, dir) or at neighbour (col+dc, row+dr, opposite)
+    for (const door of levelData.doors) {
+        if (door.col === col && door.row === row && door.direction === dir)
+            return door;
+        const [dc, dr] = DELTA[door.direction];
+        const nc = door.col + dc;
+        const nr = door.row + dr;
+        const opp = door.direction === 'N' ? 'S' :
+            door.direction === 'S' ? 'N' :
+                door.direction === 'E' ? 'W' : 'E';
+        if (nc === col && nr === row && opp === dir)
+            return door;
+    }
+    return undefined;
+}
+// ── Puzzle overlay ─────────────────────────────────────────────────────────────
+function openPuzzleOverlay(puzzle, door) {
+    phase = 'puzzle';
+    puzzleOverlay.show(puzzle, door, gameState.tokens, (result) => {
+        if (result.correct) {
+            door.isOpen = true;
+            const dk = `${door.col},${door.row},${door.direction}`;
+            doorOpenAnimations.set(dk, performance.now());
+            phase = 'playing';
+            return;
+        }
+        if (result.livesLost > 0) {
+            // Deduct life
+            gameState = { ...gameState, lives: gameState.lives - result.livesLost };
+            saveState(gameState);
+            if (gameState.lives <= 0) {
+                puzzleOverlay.hide();
+                triggerGameOver();
+                return;
+            }
+        }
+        else if (result.livesLost < 0) {
+            // Negative = token cost from hint
+            gameState = { ...gameState, tokens: Math.max(0, gameState.tokens + result.livesLost) };
+            saveState(gameState);
+        }
+        if (!puzzleOverlay.isVisible) {
+            phase = 'playing';
+        }
+    });
+}
+// ── Level transitions ─────────────────────────────────────────────────────────
+function triggerLevelComplete() {
+    if (phase === 'levelComplete')
+        return;
+    phase = 'levelComplete';
+    const prevState = { ...gameState };
+    const newState = applyLevelComplete(gameState);
+    gameState = newState;
+    saveState(gameState);
+    levelCompleteOverlay.show(prevState, newState, async () => {
+        phase = 'loading';
+        await loadLevel(gameState.level);
+        phase = 'playing';
+    });
+}
+function triggerGameOver() {
+    phase = 'gameOver';
+    clearState();
+    gameOverOverlay.show({ level: gameState.level, score: gameState.score, bestLevel: gameState.bestLevel }, () => startNewGame());
+}
+// ── Game start / load ─────────────────────────────────────────────────────────
+async function startNewGame() {
+    clearState();
+    gameState = createInitialState();
+    saveState(gameState);
+    phase = 'loading';
+    await loadLevel(1);
+    phase = 'playing';
+}
+async function startAtLevel(level) {
+    clearState();
+    gameState = { ...createInitialState(), level };
+    saveState(gameState);
+    phase = 'loading';
+    await loadLevel(level);
+    phase = 'playing';
+}
+async function continueGame(saved) {
+    gameState = saved;
+    phase = 'loading';
+    await loadLevel(gameState.level);
+    phase = 'playing';
+}
+async function loadLevel(level) {
+    doorOpenAnimations.clear();
+    levelData = await buildLevel(level);
+    player = createPlayer(levelData.grid.startCol, levelData.grid.startRow);
+    pendingDir = null;
+}

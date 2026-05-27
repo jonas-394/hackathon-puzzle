@@ -5,7 +5,7 @@ const RADIUS = 24;
 
 // Load player image once at module level
 const playerImg = new Image();
-playerImg.src = './nowak.JPG';
+playerImg.src = `${import.meta.env.BASE_URL}nowak.JPG`;
 
 export function renderPlayer(
   ctx: CanvasRenderingContext2D,
